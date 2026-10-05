@@ -3,7 +3,5 @@ uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 itsdangerous==2.2.0
 httpx==0.28.1
-qrcode==8.2
-Pillow==11.1.0
-jdatetime==5.2.0
-psutil==6.1.1
+websockets==14.2
+aiofiles==24.1.0
