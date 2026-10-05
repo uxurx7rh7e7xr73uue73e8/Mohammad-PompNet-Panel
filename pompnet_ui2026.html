@@ -1,1 +1,1654 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>MR:Mohammad Pomp Net</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+}
+
+html{
+    scroll-behavior:smooth;
+}
+
+body{
+    margin:0;
+    min-height:100vh;
+    font-family:
+        Tahoma,
+        Arial,
+        sans-serif;
+
+    color:#fff;
+
+    background:
+        radial-gradient(
+            circle at 10% 0%,
+            rgba(104,45,255,.30),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 90% 10%,
+            rgba(0,150,255,.20),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 50% 100%,
+            rgba(170,40,255,.12),
+            transparent 35%
+        ),
+        #05030b;
+}
+
+button,
+input,
+textarea{
+    font-family:inherit;
+}
+
+button{
+    cursor:pointer;
+}
+
+.container{
+    width:min(1250px,94%);
+    margin:auto;
+    padding:20px 0 50px;
+}
+
+/* HEADER */
+
+.header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:15px;
+    flex-wrap:wrap;
+
+    padding:20px;
+
+    border:1px solid rgba(132,75,255,.35);
+    border-radius:24px;
+
+    background:
+        rgba(10,7,22,.82);
+
+    backdrop-filter:blur(18px);
+
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.35),
+        0 0 40px rgba(95,40,255,.08);
+}
+
+.logo{
+    font-size:22px;
+    font-weight:900;
+}
+
+.version{
+    margin-top:7px;
+    color:#a89bca;
+    font-size:12px;
+}
+
+.logout{
+    text-decoration:none;
+    color:#fff;
+
+    padding:11px 17px;
+
+    border-radius:13px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #5428db,
+            #a43be4
+        );
+
+    box-shadow:
+        0 8px 25px rgba(115,50,230,.2);
+}
+
+/* HERO */
+
+.hero{
+    margin-top:20px;
+
+    padding:28px;
+
+    border-radius:25px;
+
+    border:1px solid rgba(100,80,255,.22);
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(91,42,210,.18),
+            rgba(0,130,255,.07)
+        );
+}
+
+.hero h1{
+    margin:0 0 10px;
+    font-size:30px;
+}
+
+.hero p{
+    margin:0;
+    color:#aaa2bd;
+    line-height:2;
+}
+
+/* STATS */
+
+.cards{
+    display:grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(180px,1fr)
+        );
+
+    gap:14px;
+
+    margin-top:20px;
+}
+
+.card{
+    padding:20px;
+
+    border-radius:20px;
+
+    background:
+        rgba(13,9,28,.82);
+
+    border:
+        1px solid
+        rgba(130,75,255,.18);
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.18);
+}
+
+.card-title{
+    color:#9e96b4;
+    font-size:13px;
+}
+
+.card-value{
+    margin-top:9px;
+    font-size:27px;
+    font-weight:900;
+}
+
+/* NAV */
+
+.nav{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+
+    margin:20px 0;
+}
+
+.nav button{
+    padding:12px 16px;
+
+    color:#ddd;
+
+    border:
+        1px solid
+        rgba(100,70,180,.35);
+
+    border-radius:13px;
+
+    background:#0d0918;
+
+    transition:.2s;
+}
+
+.nav button:hover{
+    transform:translateY(-2px);
+
+    color:#fff;
+
+    border-color:#7045df;
+
+    background:#1b1037;
+}
+
+/* PANELS */
+
+.panel{
+    display:none;
+
+    padding:23px;
+
+    border-radius:23px;
+
+    border:
+        1px solid
+        rgba(130,75,255,.18);
+
+    background:
+        rgba(10,8,21,.87);
+
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.22);
+}
+
+.panel.active{
+    display:block;
+}
+
+.panel h2{
+    margin-top:0;
+}
+
+/* FORM */
+
+input,
+textarea,
+select{
+    width:100%;
+
+    padding:14px;
+
+    margin:7px 0;
+
+    color:#fff;
+
+    outline:none;
+
+    border:
+        1px solid
+        #362568;
+
+    border-radius:13px;
+
+    background:#070611;
+}
+
+input:focus,
+textarea:focus{
+    border-color:#774cff;
+
+    box-shadow:
+        0 0 0 3px
+        rgba(119,76,255,.10);
+}
+
+textarea{
+    min-height:130px;
+    resize:vertical;
+}
+
+/* BUTTON */
+
+.primary{
+    border:0;
+
+    padding:13px 19px;
+
+    border-radius:13px;
+
+    color:#fff;
+
+    font-weight:800;
+
+    background:
+        linear-gradient(
+            135deg,
+            #542aff,
+            #a338df
+        );
+
+    box-shadow:
+        0 10px 25px
+        rgba(95,45,240,.18);
+}
+
+.primary:hover{
+    filter:brightness(1.12);
+}
+
+.danger{
+    background:
+        linear-gradient(
+            135deg,
+            #8e1f45,
+            #bd2d5b
+        );
+}
+
+/* RESULT */
+
+.result{
+    margin-top:15px;
+
+    padding:15px;
+
+    border-radius:15px;
+
+    background:#070711;
+
+    border:
+        1px solid
+        #27204b;
+
+    color:#d9d1ee;
+
+    white-space:pre-wrap;
+
+    word-break:break-word;
+
+    overflow:auto;
+}
+
+/* ITEMS */
+
+.item{
+    margin:12px 0;
+
+    padding:17px;
+
+    border-radius:17px;
+
+    background:
+        rgba(8,7,17,.9);
+
+    border:
+        1px solid
+        rgba(100,75,180,.18);
+}
+
+.item b{
+    font-size:16px;
+}
+
+.small{
+    color:#9991ac;
+    font-size:13px;
+    line-height:1.9;
+}
+
+/* LINKS */
+
+.links{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+}
+
+.links a{
+    padding:12px 17px;
+
+    color:#fff;
+
+    text-decoration:none;
+
+    border-radius:13px;
+
+    background:#15102a;
+
+    border:
+        1px solid
+        #30235a;
+}
+
+.links a:hover{
+    background:#211547;
+}
+
+/* SEPARATOR */
+
+hr{
+    border:0;
+
+    height:1px;
+
+    margin:25px 0;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            #392566,
+            transparent
+        );
+}
+
+/* MOBILE */
+
+@media(max-width:650px){
+
+    .container{
+        width:92%;
+    }
+
+    .header{
+        padding:17px;
+    }
+
+    .logo{
+        font-size:18px;
+    }
+
+    .hero{
+        padding:21px;
+    }
+
+    .hero h1{
+        font-size:24px;
+    }
+
+    .panel{
+        padding:17px;
+    }
+
+    .nav button{
+        flex:1 1 auto;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- HEADER -->
+
+<header class="header">
+
+<div>
+
+<div class="logo">
+🚀 MR:Mohammad Pomp Net
+</div>
+
 <div class="version">
+Version 2026.10.05 • Python FastAPI
+</div>
+
+</div>
+
+<a
+    class="logout"
+    href="/logout"
+>
+خروج
+</a>
+
+</header>
+
+
+<!-- HERO -->
+
+<section class="hero">
+
+<h1>
+پنل مدیریت پمپ‌نت
+</h1>
+
+<p>
+مدیریت کانفیگ‌ها، Subscription، ربات تلگرام،
+Cloudflare، GitHub و Railway در یک پنل اختصاصی.
+</p>
+
+</section>
+
+
+<!-- STATS -->
+
+<section class="cards">
+
+<div class="card">
+
+<div class="card-title">
+👤 کاربران VPN
+</div>
+
+<div
+    class="card-value"
+    id="clientsCount"
+>
+0
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="card-title">
+🤖 ربات‌های تلگرام
+</div>
+
+<div
+    class="card-value"
+    id="botsCount"
+>
+0
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="card-title">
+🟢 وضعیت پنل
+</div>
+
+<div class="card-value">
+آنلاین
+</div>
+
+</div>
+
+
+<div class="card">
+
+<div class="card-title">
+⚡ نسخه
+</div>
+
+<div class="card-value">
+2026.10.05
+</div>
+
+</div>
+
+</section>
+
+
+<!-- NAVIGATION -->
+
+<nav class="nav">
+
+<button onclick="showPanel('dashboard')">
+🏠 داشبورد
+</button>
+
+<button onclick="showPanel('vpn')">
+🔐 VPN
+</button>
+
+<button onclick="showPanel('telegram')">
+🤖 تلگرام
+</button>
+
+<button onclick="showPanel('subscription')">
+🔗 Subscription
+</button>
+
+<button onclick="showPanel('cloudflare')">
+☁️ Cloudflare
+</button>
+
+<button onclick="showPanel('github')">
+🐙 GitHub
+</button>
+
+<button onclick="showPanel('railway')">
+🚂 Railway
+</button>
+
+<button onclick="showPanel('tools')">
+🛠 ابزارها
+</button>
+
+<button onclick="showPanel('support')">
+💬 پشتیبانی
+</button>
+
+</nav>
+
+
+<!-- DASHBOARD -->
+
+<section
+    id="dashboard"
+    class="panel active"
+>
+
+<h2>
+🏠 داشبورد
+</h2>
+
+<p class="small">
+وضعیت لحظه‌ای پنل
+</p>
+
+<div
+    id="overview"
+    class="result"
+>
+در حال دریافت اطلاعات...
+</div>
+
+</section>
+
+
+<!-- VPN -->
+
+<section
+    id="vpn"
+    class="panel"
+>
+
+<h2>
+🔐 مدیریت VPN
+</h2>
+
+<p class="small">
+لینک واقعی کانفیگ را وارد کنید.
+پروتکل به صورت خودکار تشخیص داده می‌شود.
+</p>
+
+<input
+    id="clientName"
+    placeholder="نام کاربر"
+/>
+
+<textarea
+    id="clientLink"
+    placeholder="vless://... یا vmess://... یا trojan://..."
+></textarea>
+
+<button
+    class="primary"
+    onclick="addClient()"
+>
+➕ اضافه کردن کانفیگ
+</button>
+
+<div
+    id="clientResult"
+    class="result"
+>
+</div>
+
+<hr>
+
+<h3>
+📋 لیست کانفیگ‌ها
+</h3>
+
+<div id="clientsList"></div>
+
+</section>
+
+
+<!-- TELEGRAM -->
+
+<section
+    id="telegram"
+    class="panel"
+>
+
+<h2>
+🤖 مدیریت ربات تلگرام
+</h2>
+
+<p class="small">
+Bot Token را وارد کن؛ پنل آن را واقعاً با Telegram API بررسی می‌کند.
+</p>
+
+<input
+    id="botToken"
+    placeholder="123456789:AAxxxxxxxxxxxxxxxx"
+/>
+
+<button
+    class="primary"
+    onclick="checkBot()"
+>
+🔎 بررسی و ثبت ربات
+</button>
+
+<div
+    id="botResult"
+    class="result"
+>
+</div>
+
+<hr>
+
+<h3>
+🤖 ربات‌های ثبت‌شده
+</h3>
+
+<div id="botsList"></div>
+
+</section>
+
+
+<!-- SUBSCRIPTION -->
+
+<section
+    id="subscription"
+    class="panel"
+>
+
+<h2>
+🔗 Subscription
+</h2>
+
+<p class="small">
+برای کانفیگ‌های ذخیره‌شده لینک Subscription اختصاصی ساخته می‌شود.
+</p>
+
+<div id="subscriptionList"></div>
+
+</section>
+
+
+<!-- CLOUDFLARE -->
+
+<section
+    id="cloudflare"
+    class="panel"
+>
+
+<h2>
+☁️ Cloudflare
+</h2>
+
+<p class="small">
+وضعیت اتصال Cloudflare را بررسی کن.
+</p>
+
+<button
+    class="primary"
+    onclick="cloudflareStatus()"
+>
+🔎 بررسی Cloudflare
+</button>
+
+<div
+    id="cloudflareResult"
+    class="result"
+>
+</div>
+
+</section>
+
+
+<!-- GITHUB -->
+
+<section
+    id="github"
+    class="panel"
+>
+
+<h2>
+🐙 GitHub
+</h2>
+
+<p class="small">
+بررسی Repository متصل‌شده.
+</p>
+
+<button
+    class="primary"
+    onclick="githubStatus()"
+>
+🔎 بررسی GitHub
+</button>
+
+<div
+    id="githubResult"
+    class="result"
+>
+</div>
+
+</section>
+
+
+<!-- RAILWAY -->
+
+<section
+    id="railway"
+    class="panel"
+>
+
+<h2>
+🚂 Railway
+</h2>
+
+<p class="small">
+اطلاعات Runtime و وضعیت متغیرهای Railway.
+</p>
+
+<button
+    class="primary"
+    onclick="railwayStatus()"
+>
+🔎 بررسی Railway
+</button>
+
+<div
+    id="railwayResult"
+    class="result"
+>
+</div>
+
+</section>
+
+
+<!-- TOOLS -->
+
+<section
+    id="tools"
+    class="panel"
+>
+
+<h2>
+🛠 ابزارها
+</h2>
+
+<div class="item">
+
+<b>
+🔎 تشخیص پروتکل
+</b>
+
+<p class="small">
+VLESS / VMESS / Trojan /
+Shadowsocks / Hysteria2 / TUIC
+</p>
+
+</div>
+
+
+<div class="item">
+
+<b>
+🔗 Subscription Generator
+</b>
+
+<p class="small">
+ساخت لینک اشتراک برای کانفیگ‌های ذخیره‌شده.
+</p>
+
+</div>
+
+
+<div class="item">
+
+<b>
+❤️ Health Check
+</b>
+
+<p class="small">
+مسیر بررسی سلامت:
+<strong>/health</strong>
+</p>
+
+</div>
+
+</section>
+
+
+<!-- SUPPORT -->
+
+<section
+    id="support"
+    class="panel"
+>
+
+<h2>
+💬 پشتیبانی
+</h2>
+
+<p class="small">
+برای پشتیبانی از لینک‌های زیر استفاده کن.
+</p>
+
+<div class="links">
+
+<a
+    href="https://t.me/NovaTunneli"
+    target="_blank"
+>
+📱 Telegram
+</a>
+
+<a
+    href="https://t.me/PompNett"
+    target="_blank"
+>
+👥 گروه PompNet
+</a>
+
+<a
+    href="https://wa.me/message/LRTDKAYCT6IMN1"
+    target="_blank"
+>
+💬 WhatsApp
+</a>
+
+</div>
+
+</section>
+
+</div>
+
+
+<script>
+
+/* =========================
+   PANEL NAVIGATION
+========================= */
+
+function showPanel(id){
+
+    document
+        .querySelectorAll(".panel")
+        .forEach(
+            panel => {
+                panel.classList.remove("active");
+            }
+        );
+
+    const panel =
+        document.getElementById(id);
+
+    if(panel){
+        panel.classList.add("active");
+    }
+
+    if(id === "dashboard"){
+        loadOverview();
+    }
+
+    if(id === "vpn"){
+        loadClients();
+    }
+
+    if(id === "telegram"){
+        loadBots();
+    }
+
+    if(id === "subscription"){
+        loadSubscriptions();
+    }
+}
+
+
+/* =========================
+   API
+========================= */
+
+async function api(
+    url,
+    options={}
+){
+
+    try{
+
+        const response =
+            await fetch(
+                url,
+                options
+            );
+
+        if(response.status === 401){
+
+            location.href="/login";
+
+            return null;
+        }
+
+        const text =
+            await response.text();
+
+        try{
+            return JSON.parse(text);
+        }
+        catch{
+            return {
+                error:text
+            };
+        }
+
+    }catch(error){
+
+        return {
+            error:error.message
+        };
+
+    }
+
+}
+
+
+/* =========================
+   OVERVIEW
+========================= */
+
+async function loadOverview(){
+
+    const data =
+        await api(
+            "/api/overview"
+        );
+
+    if(!data){
+        return;
+    }
+
+    if(
+        data.clients !== undefined
+    ){
+
+        document
+            .getElementById(
+                "clientsCount"
+            )
+            .textContent =
+            data.clients;
+
+    }
+
+    if(
+        data.bots !== undefined
+    ){
+
+        document
+            .getElementById(
+                "botsCount"
+            )
+            .textContent =
+            data.bots;
+
+    }
+
+    document
+        .getElementById(
+            "overview"
+        )
+        .textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+}
+
+
+/* =========================
+   ADD CLIENT
+========================= */
+
+async function addClient(){
+
+    const name =
+        document
+        .getElementById(
+            "clientName"
+        )
+        .value
+        .trim();
+
+    const link =
+        document
+        .getElementById(
+            "clientLink"
+        )
+        .value
+        .trim();
+
+    if(!name){
+
+        alert(
+            "نام کاربر را وارد کن."
+        );
+
+        return;
+    }
+
+    if(!link){
+
+        alert(
+            "لینک کانفیگ را وارد کن."
+        );
+
+        return;
+    }
+
+    const body =
+        new URLSearchParams();
+
+    body.append(
+        "name",
+        name
+    );
+
+    body.append(
+        "link",
+        link
+    );
+
+    const data =
+        await api(
+            "/api/clients",
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                },
+
+                body:body
+            }
+        );
+
+    document
+        .getElementById(
+            "clientResult"
+        )
+        .textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+
+    loadClients();
+    loadOverview();
+
+}
+
+
+/* =========================
+   CLIENT LIST
+========================= */
+
+async function loadClients(){
+
+    const data =
+        await api(
+            "/api/clients"
+        );
+
+    if(!Array.isArray(data)){
+        return;
+    }
+
+    const box =
+        document
+        .getElementById(
+            "clientsList"
+        );
+
+    box.innerHTML="";
+
+    if(data.length === 0){
+
+        box.innerHTML =
+            `
+            <div class="item">
+            هنوز کانفیگی ثبت نشده است.
+            </div>
+            `;
+
+        return;
+    }
+
+    data.forEach(
+        client => {
+
+            const div =
+                document.createElement(
+                    "div"
+                );
+
+            div.className =
+                "item";
+
+            div.innerHTML = `
+                <b>
+                👤 ${escapeHtml(client.name)}
+                </b>
+
+                <p>
+                پروتکل:
+                <strong>
+                ${escapeHtml(client.protocol)}
+                </strong>
+                </p>
+
+                <p class="small">
+                ${escapeHtml(client.link)}
+                </p>
+
+                <button
+                    class="primary danger"
+                    onclick="deleteClient(${client.id})"
+                >
+                🗑 حذف
+                </button>
+            `;
+
+            box.appendChild(div);
+
+        }
+    );
+
+}
+
+
+/* =========================
+   DELETE CLIENT
+========================= */
+
+async function deleteClient(id){
+
+    if(
+        !confirm(
+            "این کانفیگ حذف شود؟"
+        )
+    ){
+        return;
+    }
+
+    await api(
+        "/api/clients/"+id,
+        {
+            method:"DELETE"
+        }
+    );
+
+    loadClients();
+    loadSubscriptions();
+    loadOverview();
+
+}
+
+
+/* =========================
+   SUBSCRIPTIONS
+========================= */
+
+async function loadSubscriptions(){
+
+    const data =
+        await api(
+            "/api/clients"
+        );
+
+    if(!Array.isArray(data)){
+        return;
+    }
+
+    const box =
+        document
+        .getElementById(
+            "subscriptionList"
+        );
+
+    box.innerHTML="";
+
+    if(data.length === 0){
+
+        box.innerHTML =
+            `
+            <div class="item">
+            هنوز Subscription ساخته نشده است.
+            </div>
+            `;
+
+        return;
+    }
+
+    data.forEach(
+        client => {
+
+            const url =
+                location.origin +
+                "/sub/" +
+                client.token;
+
+            const div =
+                document.createElement(
+                    "div"
+                );
+
+            div.className =
+                "item";
+
+            div.innerHTML = `
+                <b>
+                🔗 ${escapeHtml(client.name)}
+                </b>
+
+                <div class="result">
+                ${escapeHtml(url)}
+                </div>
+
+                <button
+                    class="primary"
+                    onclick="copyText(${JSON.stringify(url)})"
+                >
+                📋 کپی لینک
+                </button>
+            `;
+
+            box.appendChild(div);
+
+        }
+    );
+
+}
+
+
+/* =========================
+   TELEGRAM BOT
+========================= */
+
+async function checkBot(){
+
+    const token =
+        document
+        .getElementById(
+            "botToken"
+        )
+        .value
+        .trim();
+
+    if(!token){
+
+        alert(
+            "Bot Token را وارد کن."
+        );
+
+        return;
+    }
+
+    const body =
+        new URLSearchParams();
+
+    body.append(
+        "token",
+        token
+    );
+
+    const data =
+        await api(
+            "/api/bots/check",
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":
+                        "application/x-www-form-urlencoded"
+                },
+
+                body:body
+            }
+        );
+
+    document
+        .getElementById(
+            "botResult"
+        )
+        .textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+
+    loadBots();
+    loadOverview();
+
+}
+
+
+/* =========================
+   BOT LIST
+========================= */
+
+async function loadBots(){
+
+    const data =
+        await api(
+            "/api/bots"
+        );
+
+    if(!Array.isArray(data)){
+        return;
+    }
+
+    const box =
+        document
+        .getElementById(
+            "botsList"
+        );
+
+    box.innerHTML="";
+
+    if(data.length === 0){
+
+        box.innerHTML =
+            `
+            <div class="item">
+            هنوز رباتی ثبت نشده است.
+            </div>
+            `;
+
+        return;
+    }
+
+    data.forEach(
+        bot => {
+
+            const div =
+                document.createElement(
+                    "div"
+                );
+
+            div.className =
+                "item";
+
+            div.innerHTML = `
+                <b>
+                🤖 ${escapeHtml(bot.name)}
+                </b>
+
+                <p>
+                @${escapeHtml(bot.username || "")}
+                </p>
+
+                <p class="small">
+                وضعیت:
+                ${bot.active ? "🟢 فعال" : "🔴 خاموش"}
+                </p>
+            `;
+
+            box.appendChild(div);
+
+        }
+    );
+
+}
+
+
+/* =========================
+   CLOUDFLARE
+========================= */
+
+async function cloudflareStatus(){
+
+    const box =
+        document
+        .getElementById(
+            "cloudflareResult"
+        );
+
+    box.textContent =
+        "در حال بررسی...";
+
+    const data =
+        await api(
+            "/api/cloudflare"
+        );
+
+    box.textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+}
+
+
+/* =========================
+   GITHUB
+========================= */
+
+async function githubStatus(){
+
+    const box =
+        document
+        .getElementById(
+            "githubResult"
+        );
+
+    box.textContent =
+        "در حال بررسی...";
+
+    const data =
+        await api(
+            "/api/github"
+        );
+
+    box.textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+}
+
+
+/* =========================
+   RAILWAY
+========================= */
+
+async function railwayStatus(){
+
+    const box =
+        document
+        .getElementById(
+            "railwayResult"
+        );
+
+    box.textContent =
+        "در حال بررسی...";
+
+    const data =
+        await api(
+            "/api/railway"
+        );
+
+    box.textContent =
+        JSON.stringify(
+            data,
+            null,
+            2
+        );
+}
+
+
+/* =========================
+   COPY
+========================= */
+
+async function copyText(text){
+
+    try{
+
+        await navigator.clipboard.writeText(
+            text
+        );
+
+        alert(
+            "لینک کپی شد ✅"
+        );
+
+    }catch{
+
+        alert(
+            "کپی خودکار انجام نشد."
+        );
+
+    }
+
+}
+
+
+/* =========================
+   HTML ESCAPE
+========================= */
+
+function escapeHtml(value){
+
+    return String(value)
+
+        .replaceAll(
+            "&",
+            "&amp;"
+        )
+
+        .replaceAll(
+            "<",
+            "&lt;"
+        )
+
+        .replaceAll(
+            ">",
+            "&gt;"
+        )
+
+        .replaceAll(
+            '"',
+            "&quot;"
+        )
+
+        .replaceAll(
+            "'",
+            "&#039;"
+        );
+
+}
+
+
+/* =========================
+   START
+========================= */
+
+loadOverview();
+
+</script>
+
+</body>
+
+</html>
