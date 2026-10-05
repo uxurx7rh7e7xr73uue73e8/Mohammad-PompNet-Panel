@@ -8,6 +8,7 @@ env/
 .env
 .env.*
 !.env.example
+!env.example
 
 *.db
 *.sqlite
@@ -24,3 +25,5 @@ env/
 
 uploads/
 backups/
+
+data/
