@@ -13,4 +13,4 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn pompnet2026:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "exec uvicorn pompnet2026:app --host 0.0.0.0 --port ${PORT:-8080}"]
