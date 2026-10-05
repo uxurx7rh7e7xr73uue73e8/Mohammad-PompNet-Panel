@@ -1,0 +1,16 @@
+{
+  "brand": "MR:Mohammad Pomp Net",
+  "version": "2026.10.05",
+  "news": [
+    {
+      "title": "خوش آمدید",
+      "text": "به پنل اختصاصی Mohammad Pomp Net خوش آمدید.",
+      "active": true
+    },
+    {
+      "title": "PompNet",
+      "text": "پنل در حال توسعه و بهینه‌سازی است.",
+      "active": true
+    }
+  ]
+}
