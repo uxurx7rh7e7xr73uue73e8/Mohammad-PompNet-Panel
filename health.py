@@ -6,29 +6,16 @@ START_TIME = time.time()
 
 
 def health():
-
-    uptime = int(
-        time.time()
-        - START_TIME
-    )
-
     return {
-
         "ok": True,
-
-        "status":
-            "online",
-
-        "runtime":
-            "Python / FastAPI",
-
-        "uptime_seconds":
-            uptime,
-
-        "port":
-            os.getenv(
-                "PORT",
-                ""
-            )
-
+        "status": "online",
+        "runtime": "Python / FastAPI",
+        "version": "2026.10.05",
+        "uptime_seconds": int(
+            time.time() - START_TIME
+        ),
+        "port": os.getenv(
+            "PORT",
+            ""
+        )
     }
