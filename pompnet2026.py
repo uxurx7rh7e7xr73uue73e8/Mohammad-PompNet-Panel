@@ -1,1038 +1,1122 @@
-import base64
-import io
-import json
 import os
 import secrets
 import sqlite3
-import time
-from datetime import datetime, timezone
-from typing import Optional
+from pathlib import Path
 
-import httpx
-import psutil
-import qrcode
-
-from fastapi import (
-    FastAPI,
-    HTTPException,
-    Request,
-    Response,
-    UploadFile,
-    File,
-)
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
-    StreamingResponse,
+    RedirectResponse,
+    PlainTextResponse,
 )
-from itsdangerous import URLSafeTimedSerializer
+from starlette.middleware.sessions import SessionMiddleware
 
-from sanaei_adapter import SanaeiAdapter
 
+# =========================================================
+# POMP NET
+# MR:Mohammad Pomp Net
+# Python + FastAPI
+# Railway Ready
+# =========================================================
+
+BASE_DIR = Path(__file__).resolve().parent
 
 APP_NAME = "MR:Mohammad Pomp Net"
 VERSION = "2026.10.05"
 
-DB_FILE = os.getenv(
-    "POMPNET_DB",
-    "pompnet2026.db",
-)
+DB_FILE = BASE_DIR / "pompnet.db"
+UI_FILE = BASE_DIR / "pompnet_ui2026.html"
 
 ADMIN_PASSWORD = os.getenv(
     "POMPNET_ADMIN_PASSWORD",
-    "change-this-password",
+    "Mohammad@2026"
 )
 
 SESSION_SECRET = os.getenv(
     "POMPNET_SESSION_SECRET",
-    secrets.token_urlsafe(48),
-)
-
-XUI_URL = os.getenv("XUI_URL", "")
-XUI_USERNAME = os.getenv("XUI_USERNAME", "")
-XUI_PASSWORD = os.getenv("XUI_PASSWORD", "")
-
-TELEGRAM_BOT_TOKEN = os.getenv(
-    "TELEGRAM_BOT_TOKEN",
-    "",
-)
-
-CF_API_TOKEN = os.getenv(
-    "CLOUDFLARE_API_TOKEN",
-    "",
-)
-
-CF_ZONE_ID = os.getenv(
-    "CLOUDFLARE_ZONE_ID",
-    "",
+    "PompNet-Change-This-Secret"
 )
 
 
 app = FastAPI(
     title=APP_NAME,
-    version=VERSION,
+    version=VERSION
 )
 
-serializer = URLSafeTimedSerializer(SESSION_SECRET)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=SESSION_SECRET,
+    max_age=60 * 60 * 24 * 7,
+    same_site="lax",
+    https_only=False,
+)
 
 
-def db():
+# =========================================================
+# DATABASE
+# =========================================================
+
+def get_db():
     connection = sqlite3.connect(DB_FILE)
     connection.row_factory = sqlite3.Row
     return connection
 
 
-def init_db():
+def init_database():
 
-    connection = db()
+    connection = get_db()
 
-    connection.executescript(
-        """
+    connection.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            email TEXT,
-            uuid TEXT,
-            protocol TEXT,
-            inbound_id INTEGER,
-            volume INTEGER DEFAULT 0,
-            expiry INTEGER DEFAULT 0,
-            enabled INTEGER DEFAULT 1,
-            created_at INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            action TEXT,
-            details TEXT,
-            created_at INTEGER
-        );
-
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
-        """
-    )
-
-    connection.commit()
-    connection.close()
-
-
-init_db()
-
-
-def log_action(action: str, details: str = ""):
-
-    connection = db()
-
-    connection.execute(
-        """
-        INSERT INTO logs(action, details, created_at)
-        VALUES (?, ?, ?)
-        """,
-        (
-            action,
-            details,
-            int(time.time()),
-        ),
-    )
-
-    connection.commit()
-    connection.close()
-
-
-def create_session():
-    return serializer.dumps(
-        {
-            "admin": True,
-            "iat": int(time.time()),
-        }
-    )
-
-
-def is_authenticated(request: Request):
-
-    token = request.cookies.get("pompnet_session")
-
-    if not token:
-        return False
-
-    try:
-        data = serializer.loads(
-            token,
-            max_age=60 * 60 * 24,
+            protocol TEXT NOT NULL,
+            link TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
+    """)
 
-        return bool(data.get("admin"))
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS bots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            token TEXT NOT NULL,
+            username TEXT DEFAULT '',
+            status TEXT DEFAULT 'unknown',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
-    except Exception:
-        return False
+    connection.commit()
+    connection.close()
+
+
+init_database()
+
+
+# =========================================================
+# AUTH
+# =========================================================
+
+def is_logged_in(request: Request):
+
+    return request.session.get("admin") is True
 
 
 def require_auth(request: Request):
 
-    if not is_authenticated(request):
-        raise HTTPException(
-            status_code=401,
-            detail="احراز هویت لازم است",
+    if not is_logged_in(request):
+
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "unauthorized"
+            },
+            status_code=401
         )
 
+    return None
 
-def xui():
 
-    if not XUI_URL:
-        raise HTTPException(
-            status_code=503,
-            detail="XUI_URL تنظیم نشده است",
+# =========================================================
+# PROTOCOL DETECTION
+# =========================================================
+
+def detect_protocol(link: str):
+
+    value = link.strip().lower()
+
+    protocols = {
+        "vless://": "VLESS",
+        "vmess://": "VMESS",
+        "trojan://": "Trojan",
+        "ss://": "Shadowsocks",
+        "hysteria2://": "Hysteria2",
+        "hy2://": "Hysteria2",
+        "tuic://": "TUIC",
+    }
+
+    for prefix, protocol in protocols.items():
+
+        if value.startswith(prefix):
+            return protocol
+
+    return "Unknown"
+
+
+# =========================================================
+# LOGIN PAGE
+# =========================================================
+
+@app.get(
+    "/login",
+    response_class=HTMLResponse
+)
+async def login_page(request: Request):
+
+    if is_logged_in(request):
+
+        return RedirectResponse(
+            "/",
+            status_code=303
         )
 
-    return SanaeiAdapter(
-        XUI_URL,
-        XUI_USERNAME,
-        XUI_PASSWORD,
+    return HTMLResponse("""
+<!DOCTYPE html>
+
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+name="viewport"
+content="width=device-width,initial-scale=1"
+>
+
+<title>ورود | Mohammad Pomp Net</title>
+
+<style>
+
+*{
+box-sizing:border-box;
+}
+
+body{
+
+margin:0;
+
+min-height:100vh;
+
+display:flex;
+
+align-items:center;
+
+justify-content:center;
+
+font-family:Tahoma,Arial,sans-serif;
+
+background:
+
+radial-gradient(
+circle at top,
+#321078,
+transparent 40%
+),
+
+#05030b;
+
+color:white;
+
+}
+
+.box{
+
+width:min(430px,92%);
+
+padding:30px;
+
+border-radius:26px;
+
+background:
+rgba(13,8,28,.9);
+
+border:
+1px solid
+rgba(135,75,255,.5);
+
+box-shadow:
+0 25px 80px
+rgba(0,0,0,.5);
+
+}
+
+.logo{
+
+text-align:center;
+
+font-size:25px;
+
+font-weight:900;
+
+margin-bottom:10px;
+
+}
+
+.subtitle{
+
+text-align:center;
+
+color:#aaa;
+
+margin-bottom:25px;
+
+}
+
+input{
+
+width:100%;
+
+padding:15px;
+
+border-radius:14px;
+
+border:1px solid #392269;
+
+background:#080610;
+
+color:white;
+
+outline:none;
+
+margin-bottom:15px;
+
+}
+
+button{
+
+width:100%;
+
+padding:15px;
+
+border:0;
+
+border-radius:14px;
+
+background:
+linear-gradient(
+90deg,
+#6335ff,
+#a938ed
+);
+
+color:white;
+
+font-weight:900;
+
+cursor:pointer;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="box">
+
+<div class="logo">
+🚀 MR:Mohammad Pomp Net
+</div>
+
+<div class="subtitle">
+پنل مدیریت
+</div>
+
+<form
+method="post"
+action="/login"
+>
+
+<input
+type="password"
+name="password"
+placeholder="رمز مدیریت"
+required
+>
+
+<button>
+ورود
+</button>
+
+</form>
+
+</div>
+
+</body>
+
+</html>
+""")
+
+
+@app.post("/login")
+async def login(
+    request: Request,
+    password: str = Form(...)
+):
+
+    if secrets.compare_digest(
+        password,
+        ADMIN_PASSWORD
+    ):
+
+        request.session["admin"] = True
+
+        return RedirectResponse(
+            "/",
+            status_code=303
+        )
+
+    return HTMLResponse(
+        """
+        <div
+        dir="rtl"
+        style="
+        background:#05030b;
+        color:white;
+        min-height:100vh;
+        padding:80px;
+        text-align:center;
+        font-family:Tahoma;
+        ">
+        <h2>❌ رمز اشتباه است</h2>
+        <a
+        href="/login"
+        style="color:#a978ff">
+        بازگشت
+        </a>
+        </div>
+        """,
+        status_code=401
     )
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home():
+@app.get("/logout")
+async def logout(request: Request):
 
-    file_path = "pompnet_ui2026.html"
+    request.session.clear()
 
-    if not os.path.exists(file_path):
-        return HTMLResponse(
-            "<h1>PompNet UI file not found</h1>",
-            status_code=500,
+    return RedirectResponse(
+        "/login",
+        status_code=303
+    )
+
+
+# =========================================================
+# MAIN UI
+# =========================================================
+
+@app.get(
+    "/",
+    response_class=HTMLResponse
+)
+async def home(request: Request):
+
+    if not is_logged_in(request):
+
+        return RedirectResponse(
+            "/login",
+            status_code=303
         )
 
-    with open(
-        file_path,
-        "r",
-        encoding="utf-8",
-    ) as file:
+    if not UI_FILE.exists():
 
         return HTMLResponse(
-            file.read()
+            """
+            <h2>فایل UI پیدا نشد</h2>
+            <p>
+            فایل
+            pompnet_ui2026.html
+            را کنار
+            pompnet2026.py
+            قرار دهید.
+            </p>
+            """,
+            status_code=500
         )
 
+    return HTMLResponse(
+        UI_FILE.read_text(
+            encoding="utf-8"
+        )
+    )
+
+
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/health")
 async def health():
 
     return {
-        "status": "ok",
-        "app": APP_NAME,
+        "ok": True,
+        "status": "online",
+        "name": APP_NAME,
         "version": VERSION,
-        "timestamp": int(time.time()),
+        "runtime": "Python FastAPI",
+        "database": "SQLite"
     }
 
 
-@app.post("/login")
-async def login(request: Request):
-
-    body = await request.json()
-
-    password = str(
-        body.get("password", "")
-    )
-
-    if not secrets.compare_digest(
-        password,
-        ADMIN_PASSWORD,
-    ):
-        log_action(
-            "login_failed",
-            "wrong password",
-        )
-
-        raise HTTPException(
-            status_code=401,
-            detail="رمز عبور اشتباه است",
-        )
-
-    token = create_session()
-
-    response = JSONResponse(
-        {
-            "success": True,
-            "message": "خوش آمدید محمد",
-        }
-    )
-
-    response.set_cookie(
-        "pompnet_session",
-        token,
-        httponly=True,
-        secure=True,
-        samesite="lax",
-        max_age=60 * 60 * 24,
-    )
-
-    log_action(
-        "login",
-        "admin login",
-    )
-
-    return response
-
-
-@app.post("/logout")
-async def logout():
-
-    response = JSONResponse(
-        {
-            "success": True
-        }
-    )
-
-    response.delete_cookie(
-        "pompnet_session"
-    )
-
-    return response
-
-
-@app.get("/api/system")
-async def system_info(
-    request: Request,
-):
-
-    require_auth(request)
-
-    memory = psutil.virtual_memory()
-    disk = psutil.disk_usage("/")
-    net = psutil.net_io_counters()
-
-    return {
-        "cpu": psutil.cpu_percent(
-            interval=0.2
-        ),
-        "ram": {
-            "percent": memory.percent,
-            "total": memory.total,
-            "used": memory.used,
-            "available": memory.available,
-        },
-        "disk": {
-            "percent": disk.percent,
-            "total": disk.total,
-            "used": disk.used,
-            "free": disk.free,
-        },
-        "network": {
-            "bytes_sent": net.bytes_sent,
-            "bytes_recv": net.bytes_recv,
-        },
-        "load": (
-            os.getloadavg()
-            if hasattr(os, "getloadavg")
-            else []
-        ),
-    }
-
+# =========================================================
+# OVERVIEW
+# =========================================================
 
 @app.get("/api/overview")
 async def overview(
-    request: Request,
+    request: Request
 ):
 
-    require_auth(request)
+    auth = require_auth(request)
 
-    connection = db()
+    if auth:
+        return auth
 
-    users = connection.execute(
-        "SELECT COUNT(*) FROM clients"
-    ).fetchone()[0]
+    connection = get_db()
 
-    enabled = connection.execute(
-        "SELECT COUNT(*) FROM clients WHERE enabled=1"
-    ).fetchone()[0]
+    clients = connection.execute(
+        "SELECT COUNT(*) AS total FROM clients"
+    ).fetchone()["total"]
+
+    bots = connection.execute(
+        "SELECT COUNT(*) AS total FROM bots"
+    ).fetchone()["total"]
 
     connection.close()
 
     return {
-        "users": users,
-        "enabled_users": enabled,
+
+        "ok": True,
+
+        "name": APP_NAME,
+
         "version": VERSION,
-        "app": APP_NAME,
+
+        "clients": clients,
+
+        "bots": bots,
+
+        "status": "online"
+
     }
 
+
+# =========================================================
+# VPN CLIENTS
+# =========================================================
 
 @app.get("/api/clients")
 async def clients(
-    request: Request,
+    request: Request
 ):
 
-    require_auth(request)
+    auth = require_auth(request)
 
-    connection = db()
+    if auth:
+        return auth
 
-    rows = connection.execute(
-        """
-        SELECT *
+    connection = get_db()
+
+    rows = connection.execute("""
+        SELECT
+            id,
+            name,
+            protocol,
+            link,
+            token,
+            created_at
         FROM clients
         ORDER BY id DESC
-        """
-    ).fetchall()
+    """).fetchall()
 
     connection.close()
 
-    return [
-        dict(row)
-        for row in rows
-    ]
+    return {
+        "ok": True,
+        "clients": [
+            dict(row)
+            for row in rows
+        ]
+    }
 
 
 @app.post("/api/clients")
-async def add_client(
+async def create_client(
     request: Request,
+    name: str = Form(...),
+    link: str = Form(...)
 ):
 
-    require_auth(request)
+    auth = require_auth(request)
 
-    body = await request.json()
+    if auth:
+        return auth
 
-    name = str(
-        body.get("name", "")
-    ).strip()
+    name = name.strip()
+    link = link.strip()
 
     if not name:
-        raise HTTPException(
-            status_code=400,
-            detail="نام کاربر الزامی است",
-        )
-
-    client_uuid = body.get(
-        "uuid"
-    ) or SanaeiAdapter.new_uuid()
-
-    connection = db()
-
-    cursor = connection.execute(
-        """
-        INSERT INTO clients
-        (
-            name,
-            email,
-            uuid,
-            protocol,
-            inbound_id,
-            volume,
-            expiry,
-            enabled,
-            created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            name,
-            body.get("email"),
-            client_uuid,
-            body.get(
-                "protocol",
-                "vless",
-            ),
-            body.get(
-                "inbound_id"
-            ),
-            int(
-                body.get(
-                    "volume",
-                    0,
-                )
-            ),
-            int(
-                body.get(
-                    "expiry",
-                    0,
-                )
-            ),
-            1,
-            int(time.time()),
-        ),
-    )
-
-    connection.commit()
-
-    client_id = cursor.lastrowid
-
-    connection.close()
-
-    log_action(
-        "client_created",
-        f"id={client_id}",
-    )
-
-    return {
-        "success": True,
-        "id": client_id,
-        "uuid": client_uuid,
-    }
-
-
-@app.delete("/api/clients/{client_id}")
-async def delete_client(
-    client_id: int,
-    request: Request,
-):
-
-    require_auth(request)
-
-    connection = db()
-
-    row = connection.execute(
-        "SELECT * FROM clients WHERE id=?",
-        (client_id,),
-    ).fetchone()
-
-    if not row:
-        connection.close()
-
-        raise HTTPException(
-            status_code=404,
-            detail="کاربر پیدا نشد",
-        )
-
-    connection.execute(
-        "DELETE FROM clients WHERE id=?",
-        (client_id,),
-    )
-
-    connection.commit()
-    connection.close()
-
-    log_action(
-        "client_deleted",
-        f"id={client_id}",
-    )
-
-    return {
-        "success": True
-    }
-
-
-@app.get("/api/logs")
-async def logs(
-    request: Request,
-):
-
-    require_auth(request)
-
-    connection = db()
-
-    rows = connection.execute(
-        """
-        SELECT *
-        FROM logs
-        ORDER BY id DESC
-        LIMIT 200
-        """
-    ).fetchall()
-
-    connection.close()
-
-    return [
-        dict(row)
-        for row in rows
-    ]
-
-
-@app.get("/api/xui/status")
-async def xui_status(
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-        result = await adapter.login()
-
-        return {
-            "connected": True,
-            "result": result,
-        }
-
-    except Exception as exc:
 
         return JSONResponse(
             {
-                "connected": False,
-                "error": str(exc),
+                "ok": False,
+                "error":
+                "نام کاربر وارد نشده است."
             },
-            status_code=502,
+            status_code=400
         )
 
-    finally:
-        await adapter.close()
+    protocol = detect_protocol(link)
 
+    if protocol == "Unknown":
 
-@app.get("/api/xui/inbounds")
-async def xui_inbounds(
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-        result = await adapter.inbounds()
-
-        log_action(
-            "xui_inbounds",
-            "read",
+        return JSONResponse(
+            {
+                "ok": False,
+                "error":
+                "فرمت لینک پشتیبانی نمی‌شود."
+            },
+            status_code=400
         )
 
-        return result
+    token = secrets.token_urlsafe(24)
 
-    except Exception as exc:
+    connection = get_db()
 
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
+    connection.execute("""
+        INSERT INTO clients
+        (
+            name,
+            protocol,
+            link,
+            token
         )
-
-    finally:
-        await adapter.close()
-
-
-@app.get("/api/xui/inbound/{inbound_id}")
-async def xui_inbound(
-    inbound_id: int,
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-        return await adapter.inbound(
-            inbound_id
-        )
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        )
-
-    finally:
-        await adapter.close()
-
-
-@app.get("/api/xui/client-traffic/{email}")
-async def xui_client_traffic(
-    email: str,
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-        return await adapter.client_traffic(
-            email
-        )
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        )
-
-    finally:
-        await adapter.close()
-
-
-@app.post("/api/xui/reset/{email}")
-async def xui_reset(
-    email: str,
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-
-        result = await adapter.reset_client_traffic(
-            email
-        )
-
-        log_action(
-            "xui_reset_traffic",
-            email,
-        )
-
-        return result
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        )
-
-    finally:
-        await adapter.close()
-
-
-@app.post("/api/xui/restart")
-async def xui_restart(
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-
-        result = await adapter.restart_xray()
-
-        log_action(
-            "xray_restart",
-            "real API request",
-        )
-
-        return result
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        )
-
-    finally:
-        await adapter.close()
-
-
-@app.get("/api/xui/server")
-async def xui_server(
-    request: Request,
-):
-
-    require_auth(request)
-
-    adapter = xui()
-
-    try:
-
-        return await adapter.server_status()
-
-    except Exception as exc:
-
-        raise HTTPException(
-            status_code=502,
-            detail=str(exc),
-        )
-
-    finally:
-        await adapter.close()
-
-
-@app.get("/sub/{token}")
-async def subscription(
-    token: str,
-):
-
-    connection = db()
-
-    row = connection.execute(
-        """
-        SELECT *
-        FROM clients
-        WHERE uuid=?
-        AND enabled=1
-        """,
-        (token,),
-    ).fetchone()
-
-    connection.close()
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail="Subscription not found",
-        )
-
-    result = {
-        "name": row["name"],
-        "uuid": row["uuid"],
-        "protocol": row["protocol"],
-        "volume": row["volume"],
-        "expiry": row["expiry"],
-    }
-
-    encoded = base64.b64encode(
-        json.dumps(
-            result,
-            ensure_ascii=False,
-        ).encode()
-    ).decode()
-
-    return Response(
-        content=encoded,
-        media_type="text/plain",
-    )
-
-
-@app.get("/api/qr")
-async def qr(
-    request: Request,
-    text: str,
-):
-
-    require_auth(request)
-
-    image = qrcode.make(text)
-
-    buffer = io.BytesIO()
-
-    image.save(
-        buffer,
-        format="PNG",
-    )
-
-    buffer.seek(0)
-
-    return StreamingResponse(
-        buffer,
-        media_type="image/png",
-    )
-
-
-@app.get("/api/export")
-async def export_data(
-    request: Request,
-):
-
-    require_auth(request)
-
-    connection = db()
-
-    clients = [
-        dict(row)
-        for row in connection.execute(
-            "SELECT * FROM clients"
-        ).fetchall()
-    ]
-
-    logs = [
-        dict(row)
-        for row in connection.execute(
-            "SELECT * FROM logs"
-        ).fetchall()
-    ]
-
-    connection.close()
-
-    return {
-        "version": VERSION,
-        "exported_at": int(time.time()),
-        "clients": clients,
-        "logs": logs,
-    }
-
-
-@app.post("/api/import")
-async def import_data(
-    request: Request,
-):
-
-    require_auth(request)
-
-    body = await request.json()
-
-    clients = body.get(
-        "clients",
-        [],
-    )
-
-    connection = db()
-
-    for client in clients:
-
-        connection.execute(
-            """
-            INSERT INTO clients
-            (
-                name,
-                email,
-                uuid,
-                protocol,
-                inbound_id,
-                volume,
-                expiry,
-                enabled,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                client.get("name"),
-                client.get("email"),
-                client.get("uuid"),
-                client.get("protocol"),
-                client.get("inbound_id"),
-                client.get("volume", 0),
-                client.get("expiry", 0),
-                client.get("enabled", 1),
-                client.get(
-                    "created_at",
-                    int(time.time()),
-                ),
-            ),
-        )
+        VALUES
+        (?, ?, ?, ?)
+    """, (
+        name,
+        protocol,
+        link,
+        token
+    ))
 
     connection.commit()
+
     connection.close()
 
-    log_action(
-        "import",
-        f"{len(clients)} clients",
-    )
-
     return {
-        "success": True,
-        "imported": len(clients),
+
+        "ok": True,
+
+        "name": name,
+
+        "protocol": protocol,
+
+        "token": token,
+
+        "subscription":
+        f"/sub/{token}"
+
     }
 
 
-@app.post("/api/telegram/test")
-async def telegram_test(
+@app.delete(
+    "/api/clients/{client_id}"
+)
+async def remove_client(
     request: Request,
+    client_id: int
 ):
 
-    require_auth(request)
+    auth = require_auth(request)
 
-    token = (
-        TELEGRAM_BOT_TOKEN
-        or os.getenv(
-            "TELEGRAM_BOT_TOKEN",
-            "",
-        )
+    if auth:
+        return auth
+
+    connection = get_db()
+
+    connection.execute(
+        "DELETE FROM clients WHERE id=?",
+        (client_id,)
     )
+
+    connection.commit()
+
+    connection.close()
+
+    return {
+        "ok": True,
+        "deleted": client_id
+    }
+
+
+# =========================================================
+# SUBSCRIPTION
+# =========================================================
+
+@app.get(
+    "/sub/{token}",
+    response_class=PlainTextResponse
+)
+async def subscription(
+    token: str
+):
+
+    connection = get_db()
+
+    rows = connection.execute("""
+        SELECT link
+        FROM clients
+        WHERE token=?
+    """, (token,)).fetchall()
+
+    connection.close()
+
+    if not rows:
+
+        return PlainTextResponse(
+            "Subscription not found",
+            status_code=404
+        )
+
+    links = []
+
+    for row in rows:
+
+        links.append(
+            row["link"]
+        )
+
+    return PlainTextResponse(
+        "\n".join(links)
+    )
+
+
+# =========================================================
+# TELEGRAM BOTS
+# =========================================================
+
+@app.get("/api/bots")
+async def get_bots(
+    request: Request
+):
+
+    auth = require_auth(request)
+
+    if auth:
+        return auth
+
+    connection = get_db()
+
+    rows = connection.execute("""
+        SELECT
+            id,
+            name,
+            username,
+            status,
+            created_at
+        FROM bots
+        ORDER BY id DESC
+    """).fetchall()
+
+    connection.close()
+
+    return {
+        "ok": True,
+        "bots": [
+            dict(row)
+            for row in rows
+        ]
+    }
+
+
+@app.post("/api/bots/check")
+async def check_bot(
+    request: Request,
+    token: str = Form(...)
+):
+
+    auth = require_auth(request)
+
+    if auth:
+        return auth
+
+    token = token.strip()
 
     if not token:
 
-        raise HTTPException(
-            status_code=503,
-            detail="TELEGRAM_BOT_TOKEN تنظیم نشده است",
+        return JSONResponse(
+            {
+                "ok": False,
+                "error":
+                "Bot Token خالی است."
+            },
+            status_code=400
         )
+
+    import urllib.request
+    import json
 
     url = (
         "https://api.telegram.org/"
         f"bot{token}/getMe"
     )
 
-    async with httpx.AsyncClient(
-        timeout=15
-    ) as client:
+    try:
 
-        response = await client.get(url)
-
-    if response.status_code >= 400:
-
-        raise HTTPException(
-            status_code=502,
-            detail=response.text[:500],
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent":
+                "Mohammad-PompNet"
+            }
         )
 
-    data = response.json()
+        with urllib.request.urlopen(
+            req,
+            timeout=15
+        ) as response:
 
-    log_action(
-        "telegram_test",
-        "getMe",
-    )
+            data = json.loads(
+                response.read().decode()
+            )
 
-    return data
+        if not data.get("ok"):
 
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "error":
+                    "Bot Token معتبر نیست."
+                },
+                status_code=400
+            )
 
-@app.get("/api/cloudflare/status")
-async def cloudflare_status(
-    request: Request,
-):
+        bot = data["result"]
 
-    require_auth(request)
+        connection = get_db()
 
-    if not CF_API_TOKEN:
+        connection.execute("""
+            INSERT INTO bots
+            (
+                name,
+                token,
+                username,
+                status
+            )
+            VALUES
+            (?, ?, ?, ?)
+        """, (
+            bot.get(
+                "first_name",
+                "Telegram Bot"
+            ),
+            token,
+            bot.get(
+                "username",
+                ""
+            ),
+            "online"
+        ))
+
+        connection.commit()
+
+        connection.close()
 
         return {
-            "connected": False,
-            "error": "CLOUDFLARE_API_TOKEN تنظیم نشده",
+
+            "ok": True,
+
+            "id":
+            bot.get("id"),
+
+            "name":
+            bot.get("first_name"),
+
+            "username":
+            bot.get("username")
+
         }
 
-    async with httpx.AsyncClient(
-        timeout=15
-    ) as client:
+    except Exception as exc:
 
-        response = await client.get(
-            "https://api.cloudflare.com/client/v4/user/tokens/verify",
-            headers={
-                "Authorization":
-                    f"Bearer {CF_API_TOKEN}",
-                "Content-Type":
-                    "application/json",
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": str(exc)
             },
+            status_code=500
         )
 
-    try:
-        data = response.json()
-    except Exception:
-        data = {
-            "raw": response.text
-        }
 
-    return data
+# =========================================================
+# CLOUDFLARE
+# =========================================================
 
-
-@app.get("/api/cloudflare/dns")
-async def cloudflare_dns(
-    request: Request,
+@app.get("/api/cloudflare")
+async def cloudflare(
+    request: Request
 ):
 
-    require_auth(request)
+    auth = require_auth(request)
 
-    if not CF_API_TOKEN:
-        raise HTTPException(
-            status_code=503,
-            detail="Cloudflare API token تنظیم نشده است",
+    if auth:
+        return auth
+
+    token = os.getenv(
+        "CLOUDFLARE_API_TOKEN",
+        ""
+    ).strip()
+
+    zone_id = os.getenv(
+        "CLOUDFLARE_ZONE_ID",
+        ""
+    ).strip()
+
+    if not token:
+
+        return {
+            "ok": True,
+            "configured": False,
+            "message":
+            "CLOUDFLARE_API_TOKEN تنظیم نشده است."
+        }
+
+    try:
+
+        import urllib.request
+
+        headers = {
+            "Authorization":
+            f"Bearer {token}"
+        }
+
+        url = (
+            "https://api.cloudflare.com/"
+            "client/v4/zones"
         )
 
-    if not CF_ZONE_ID:
-        raise HTTPException(
-            status_code=503,
-            detail="Cloudflare Zone ID تنظیم نشده است",
+        req = urllib.request.Request(
+            url,
+            headers=headers
         )
 
-    async with httpx.AsyncClient(
-        timeout=20
-    ) as client:
+        with urllib.request.urlopen(
+            req,
+            timeout=15
+        ) as response:
 
-        response = await client.get(
-            f"https://api.cloudflare.com/client/v4/zones/{CF_ZONE_ID}/dns_records",
+            data = json_loads_safe(
+                response.read()
+            )
+
+        return {
+            "ok": True,
+            "configured": True,
+            "success":
+            data.get("success", False),
+            "result":
+            data.get("result", [])
+        }
+
+    except Exception as exc:
+
+        return {
+            "ok": False,
+            "configured": True,
+            "error": str(exc)
+        }
+
+
+# =========================================================
+# GITHUB
+# =========================================================
+
+@app.get("/api/github")
+async def github(
+    request: Request
+):
+
+    auth = require_auth(request)
+
+    if auth:
+        return auth
+
+    token = os.getenv(
+        "GITHUB_TOKEN",
+        ""
+    ).strip()
+
+    repo = os.getenv(
+        "GITHUB_REPO",
+        "uxurx7rh7e7xr73uue73e8/"
+        "Mohammad-PompNet-Panel"
+    ).strip()
+
+    if not token:
+
+        return {
+            "ok": True,
+            "configured": False,
+            "repository": repo
+        }
+
+    try:
+
+        import urllib.request
+
+        url = (
+            "https://api.github.com/repos/"
+            + repo
+        )
+
+        req = urllib.request.Request(
+            url,
             headers={
                 "Authorization":
-                    f"Bearer {CF_API_TOKEN}",
-                "Content-Type":
-                    "application/json",
-            },
+                f"Bearer {token}",
+                "Accept":
+                "application/vnd.github+json"
+            }
         )
 
-    if response.status_code >= 400:
+        with urllib.request.urlopen(
+            req,
+            timeout=15
+        ) as response:
 
-        raise HTTPException(
-            status_code=502,
-            detail=response.text[:500],
+            data = json_loads_safe(
+                response.read()
+            )
+
+        return {
+            "ok": True,
+            "configured": True,
+            "repository": repo,
+            "name":
+            data.get("name"),
+            "private":
+            data.get("private"),
+            "branch":
+            data.get("default_branch")
+        }
+
+    except Exception as exc:
+
+        return {
+            "ok": False,
+            "configured": True,
+            "error": str(exc)
+        }
+
+
+# =========================================================
+# RAILWAY
+# =========================================================
+
+@app.get("/api/railway")
+async def railway(
+    request: Request
+):
+
+    auth = require_auth(request)
+
+    if auth:
+        return auth
+
+    return {
+
+        "ok": True,
+
+        "platform":
+        "Railway",
+
+        "runtime":
+        "Python FastAPI",
+
+        "port":
+        os.getenv(
+            "PORT",
+            "8080"
+        ),
+
+        "status":
+        "ready"
+
+    }
+
+
+# =========================================================
+# CONFIG
+# =========================================================
+
+@app.get("/api/config")
+async def config(
+    request: Request
+):
+
+    auth = require_auth(request)
+
+    if auth:
+        return auth
+
+    return {
+
+        "ok": True,
+
+        "name":
+        APP_NAME,
+
+        "version":
+        VERSION,
+
+        "runtime":
+        "Python",
+
+        "framework":
+        "FastAPI",
+
+        "protocols": [
+            "VLESS",
+            "VMESS",
+            "Trojan",
+            "Shadowsocks",
+            "Hysteria2",
+            "TUIC"
+        ]
+
+    }
+
+
+# =========================================================
+# SAFE JSON
+# =========================================================
+
+def json_loads_safe(data):
+
+    import json
+
+    return json.loads(
+        data.decode(
+            "utf-8"
+        )
+    )
+
+
+# =========================================================
+# START
+# =========================================================
+
+if __name__ == "__main__":
+
+    import uvicorn
+
+    uvicorn.run(
+
+        "pompnet2026:app",
+
+        host="0.0.0.0",
+
+        port=int(
+            os.getenv(
+                "PORT",
+                "8080"
+            )
         )
 
-    return response.json()
+    )
