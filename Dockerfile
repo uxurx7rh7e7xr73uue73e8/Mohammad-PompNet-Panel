@@ -6,23 +6,26 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PIP_NO_CACHE_DIR=1
 
+# Default admin login
+ENV ADMIN_USERNAME=admin
+ENV ADMIN_PASSWORD=admin
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# دریافت نسخه اصلی پنل
+# Original AHBPanel source
 RUN git clone https://github.com/uxurx7rh7e7xr73uue73e8/ahbpanel.git /tmp/source \
     && cd /tmp/source \
     && git checkout f95c118169fd6c66e6e5b155a716cbdfc6e330c7 \
     && cp -a . /app/ \
     && rm -rf /app/.git /tmp/source
 
+# POMP NET branding
 COPY pompnet_brand.py /app/pompnet_brand.py
 
-# تغییر برند بدون حذف قابلیت‌های اصلی
 RUN python /app/pompnet_brand.py
 
-# requirements اصلی خود پنل
 RUN pip install --upgrade pip \
     && pip install -r /app/requirements.txt
 
